@@ -9,23 +9,29 @@ class hello():
     def __init__(self) -> None:
         self.fail = open('fail.txt', 'w')
 
+    async def refetch(self, session, uris):
+        try:
+            api_link = f'https://api.spotify.com/v1/playlists/{info["Spotify_playlist"]}/tracks?uris={uris}'
 
-    async def fetch(self, session, i, uris = None):
+            async with session.post(api_link, headers=header) as response:
+                        if not response.status == 201:
+                            logger.warn(f"{uris} - Bad Request")
+                                    # Bad Request
+                            await asyncio.sleep(0.5)
+                            async with aiohttp.ClientSession() as session:
+                                return await self.refetch(session, uris)
+                        else: logger.debug(f"{uris} {response.status}")
+
+        except Exception as e:  # Timeout
+            logger.error(e)
+            await asyncio.sleep(2)
+            async with aiohttp.ClientSession() as session:
+                await self.refetch(session, uris)
+
+
+    async def fetch(self, session, i):
         try:
             logger.debug(f"{i[0]} by {i[1]}")
-            
-            if uris != None:
-                api_link = f'https://api.spotify.com/v1/playlists/{info["Spotify_playlist"]}/tracks?uris={uris}'
-                
-                async with session.post(api_link, headers=header) as response:
-                    if not response.status == 201:
-                        logger.warn(f"{i} - Bad Request")
-                                # Bad Request
-                        await asyncio.sleep(2)
-                        async with aiohttp.ClientSession() as session:
-                            return await self.fetch(session, i, ids)
-                    else: logger.debug(f"{i} {response.status}")
-                return
                 
             res = spotify.search(f"{i[0]} {i[1]}", type="track")
 
