@@ -1,4 +1,4 @@
-import spotipy, requests, json, urllib, asyncio, aiohttp
+import spotipy, json, asyncio, aiohttp
 import logging, logging.config
 from spotipy.oauth2 import SpotifyClientCredentials
 from ytmusicapi import YTMusic
@@ -9,28 +9,30 @@ class hello():
     def __init__(self) -> None:
         self.fail = open('fail.txt', 'w')
 
-    async def refetch(self, session, uris):
+    async def refetch(self, session, i, uris):
         try:
+            logger.debug(f"re-fetching {i} - {uris}")
             api_link = f'https://api.spotify.com/v1/playlists/{info["Spotify_playlist"]}/tracks?uris={uris}'
 
             async with session.post(api_link, headers=header) as response:
                         if not response.status == 201:
-                            logger.warn(f"{uris} - Bad Request")
+                            logger.warn(f"{i} - Bad Request {response.status} \n {api_link}")
                                     # Bad Request
                             await asyncio.sleep(0.5)
                             async with aiohttp.ClientSession() as session:
-                                return await self.refetch(session, uris)
-                        else: logger.debug(f"{uris} {response.status}")
+                                return await self.refetch(session, i, uris)
+                        else: logger.debug(f"{i} {response.status}")
 
         except Exception as e:  # Timeout
             logger.error(e)
             await asyncio.sleep(2)
             async with aiohttp.ClientSession() as session:
-                await self.refetch(session, uris)
+                await self.refetch(session, i, uris)
 
 
     async def fetch(self, session, i):
         try:
+            ids = ''
             logger.debug(f"{i[0]} by {i[1]}")
                 
             res = spotify.search(f"{i[0]} {i[1]}", type="track")
@@ -40,7 +42,7 @@ class hello():
                 self.fail.write(i)
             else:
                 ids = res['tracks']['items'][0]['uri']
-                logging.debug(f'added : {i} - {ids}')
+                logging.debug(f'found : {i} - {ids}')
                 
                 api_link = f'https://api.spotify.com/v1/playlists/{info["Spotify_playlist"]}/tracks?uris={ids}'
             
@@ -50,14 +52,14 @@ class hello():
                                 # Bad Request
                         await asyncio.sleep(2)
                         async with aiohttp.ClientSession() as session:
-                            return await self.fetch(session, i, ids)
+                            return await self.refetch(session, i, ids)
                     else: logger.debug(f"{i} {response.status}")
 
         except Exception as e:  # Timeout
             logger.error(e)
             await asyncio.sleep(2)
             async with aiohttp.ClientSession() as session:
-                await self.fetch(session, i, ids)
+                await self.refetch(session, i, ids) 
 
     def crowls(self, url: str):
         logger.debug('connecting to youtube music')
@@ -97,7 +99,7 @@ if __name__ == "__main__":
     spotify = spotipy.Spotify(auth_manager=SpotifyClientCredentials(client_id=info["client_id"], client_secret=info['client_secret']))
     header = {"Accept": "application/json", "Content-Type": "application/json",
               "Authorization": f"Bearer {info['token']}"}
-    logger.debug('start')
+    logger.info('start')
     asyncio.run(new.main())
-    logger.debug('finished')
+    logger.info('finished')
 
