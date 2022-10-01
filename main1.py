@@ -16,7 +16,7 @@ class hello():
 
             async with session.post(api_link, headers=header) as response:
                         if not response.status == 201:
-                            logger.warn(f"{i} - Bad Request {response.status} \n {api_link}")
+                            logger.warn(f"Refetch - {i} - Bad Request {response.status} \n {api_link}")
                                     # Bad Request
                             await asyncio.sleep(0.5)
                             async with aiohttp.ClientSession() as session:
@@ -39,7 +39,7 @@ class hello():
 
             if res is None or len(res.get("tracks", {}).get("items", [])) == 0:
                 logger.debug(f'failed to finding {i}')
-                self.fail.write(i)
+                self.fail.write(str(i))
             else:
                 ids = res['tracks']['items'][0]['uri']
                 logging.debug(f'found : {i} - {ids}')
@@ -48,18 +48,26 @@ class hello():
             
                 async with session.post(api_link, headers=header) as response:
                     if not response.status == 201:
-                        logger.warn(f"{i} - Bad Request")
+                        logger.warn(f"{i} - Bad Request  \n {api_link}")
                                 # Bad Request
                         await asyncio.sleep(2)
                         async with aiohttp.ClientSession() as session:
                             return await self.refetch(session, i, ids)
                     else: logger.debug(f"{i} {response.status}")
 
-        except Exception as e:  # Timeout
+        except TimeoutError as e:  # Timeout
             logger.error(e)
             await asyncio.sleep(2)
             async with aiohttp.ClientSession() as session:
-                await self.refetch(session, i, ids) 
+                await self.refetch(session, i, ids)  
+        
+        except ReadTimeout as e:
+            logger.error(e)
+            await asyncio.sleep(2)
+            async with aiohttp.ClientSession() as session:
+                await self.refetch(session, i, ids)
+        
+        except: pass
 
     def crowls(self, url: str):
         logger.debug('connecting to youtube music')
@@ -76,7 +84,6 @@ class hello():
         # [['Daydream', 'Kenshi Yonezu'], ['for lovers who hesitate', 'JANNABI']]
         loop = asyncio.get_event_loop()
         name_list = await loop.run_in_executor(None, self.crowls, info["Youtube_playlist"])
-        # name_list = await self.crowls(info["Youtube_playlist"])
         logger.debug(str(name_list))
         logger.debug('Starting Requests')
         # Requests
@@ -97,9 +104,7 @@ if __name__ == "__main__":
     new = hello()
     info = json.loads(open('./info.json').read())
     spotify = spotipy.Spotify(auth_manager=SpotifyClientCredentials(client_id=info["client_id"], client_secret=info['client_secret']))
-    header = {"Accept": "application/json", "Content-Type": "application/json",
-              "Authorization": f"Bearer {info['token']}"}
+    header = {"Accept": "application/json", "Content-Type": "application/json", "Authorization": f"Bearer {info['token']}"}
     logger.info('start')
     asyncio.run(new.main())
     logger.info('finished')
-
